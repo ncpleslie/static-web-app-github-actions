@@ -1,0 +1,37 @@
+name: _Is branch in PR?
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+        description: 'The hosted runner'
+    outputs:
+      is-in-pr:
+        description: True if the branch is in PR
+        value: ${{ jobs.run.outputs.is-in-pr }}
+      pr-number:
+        description: The PR's number
+        value: ${{ jobs.run.outputs.pr-number }}
+
+permissions:
+  pull-requests: read
+
+jobs:
+  run:
+    runs-on: ${{ inputs.runs-on }}
+    outputs:
+      is-in-pr: ${{ steps.output-pr-result.outputs.is-in-pr }}
+      pr-number: ${{ steps.output-pr-result.outputs.pr-number }}
+    steps:
+      - name: Find Pull Request
+        uses: juliangruber/find-pull-request-action@v1
+        id: find-pull-request
+        with:
+          branch: ${{ github.ref_name }}
+      - run: |
+          echo "is-in-pr=${{ steps.find-pull-request.outputs.number != '' }}" >> $GITHUB_OUTPUT
+          echo "pr-number=${{ steps.find-pull-request.outputs.number }}" >> $GITHUB_OUTPUT
+        id: output-pr-result

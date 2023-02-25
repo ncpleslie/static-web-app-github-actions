@@ -1,0 +1,29 @@
+{
+  "name": "static-web-apps-github-actions",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test:unit": "echo 'no unit tests'",
+    "test": "echo 'no tests'",
+    "lint": "echo 'Lint not found'",
+    "dev": "npm-run-all --parallel dev:*",
+    "dev:client": "vite --port 4280",
+    "dev:api": "yarn --cwd ./api run start"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@azure/static-web-apps-cli": "1.0.6",
+    "@types/react": "^18.0.26",
+    "@types/react-dom": "^18.0.9",
+    "@vitejs/plugin-react": "^3.0.0",
+    "typescript": "^4.9.3",
+    "vite": "^4.0.0",
+    "npm-run-all": "4.1.5"
+  }
+}

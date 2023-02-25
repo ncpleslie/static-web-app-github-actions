@@ -1,0 +1,76 @@
+name: "Manual: Create Azure Resources"
+
+on:
+  workflow_dispatch:
+    inputs:
+      project-name:
+        description: "The name of the project group. This should be a lowercase, '-' separated string. E.g. 'My Project' should be 'my-project'."
+        type: string
+        required: true
+      environment:
+        description: "The environment of the application."
+        type: choice
+        required: true
+        options:
+          - "dev"
+          - "prd"
+      location:
+        description: "The location to deploy the static web app."
+        type: choice
+        required: true
+        options:
+          - "centralus"
+          - "eastus2"
+          - "eastasia"
+          - "westeurope"
+          - "westus2"
+      owner-email:
+        description: "The owner of the resource. Provide your company-specific email. E.g. myname@email.com."
+        type: string
+        required: true
+
+env:
+  resource-group-name: ${{ inputs.project-name }}-${{ inputs.environment }}-rg
+  static-web-app-name: ${{ inputs.project-name }}-${{ inputs.environment }}-swa
+  location: ${{ inputs.location }}
+  owner-email: ${{ inputs.owner-email }}
+  repo-url: https://github.com/${{ github.repository }}
+
+jobs:
+  create-azure-resources:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Create resource group
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            #!/bin/bash
+            az group create --name ${{ env.resource-group-name }} --location ${{ env.location }} --tags 'owner=${{ env.owner-email }}'
+            echo "Azure resource group created"
+      - name: Deploy ARM template
+        id: deploy
+        uses: azure/arm-deploy@v1
+        with:
+          resourceGroupName: ${{ env.resource-group-name }}
+          template: azure/azuredeploy.json
+          parameters: name=${{ env.static-web-app-name }} location=${{ env.location }} repositoryUrl=${{ env.repo-url }} owner=${{ env.owner-email }}
+      - name: Get variables
+        uses: Azure/CLI@v1
+        with:
+          inlineScript: |
+            #!/bin/bash
+            APIKEY=$(az staticwebapp secrets list --name ${{ env.static-web-app-name }} | jq -r '.properties.apiKey')
+            echo "api-key=$APIKEY" >> $GITHUB_ENV
+      - name: Set variables
+        uses: hmanzur/actions-set-secret@v2.0.0
+        env:
+          secret-name: AZURE_STATIC_WEB_APPS_API_TOKEN_${{ inputs.environment }}
+        with:
+          name: ${{ env.secret-name }}
+          value: ${{ env.api-key }}
+          token: ${{ secrets.REPO_ACCESS_TOKEN }}

@@ -1,0 +1,32 @@
+name: _Lint client
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: 'The version of Node'
+        required: false
+        type: string
+        default: '16.x'
+      runs-on:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+        description: 'The hosted runner'
+
+jobs:
+  run:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: "yarn"
+      - name: Install modules
+        run: yarn install
+      - name: Run ESLint
+        run: yarn run lint

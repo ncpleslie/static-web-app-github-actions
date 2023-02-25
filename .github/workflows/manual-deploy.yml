@@ -1,0 +1,74 @@
+name: "Manual: Deploy Static Web Apps"
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "The environment to manually deploy to"
+        type: choice
+        required: true
+        options:
+          - "fte"
+
+# This will prevent two jobs spinning up at once.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  es-lint:
+    name: ES Lint
+    uses: ./.github/workflows/lint.yml
+
+  unit-tests:
+    name: Unit Tests
+    uses: ./.github/workflows/unit-test.yml
+
+  # Build the client but not for every push to the repo
+  # This will prevent over-usage of the build runners.
+  build-client:
+    name: Build Client
+    needs: [unit-tests, es-lint]
+    uses: ./.github/workflows/build-client.yml
+
+  is-in-pr:
+    name: Is branch in PR
+    permissions:
+      pull-requests: read
+    uses: ./.github/workflows/is-in-pr.yml
+
+  # call the API build module
+  build-api:
+    name: Build API
+    uses: ./.github/workflows/build-api.yml
+
+  deploy-job-fte:
+    if: github.event_name == 'workflow_dispatch' && inputs.environment == 'fte'
+    uses: ./.github/workflows/deploy-static-web-app.yml
+    needs: [build-client, build-api]
+    with:
+      production-branch: "main"
+      deployment-environment: ${{ inputs.environment }}
+      development-environment-deploy: true
+    secrets:
+      azure-static-web-apps-api-token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+
+  paint-pull-request:
+    if: needs.is-in-pr.outputs.is-in-pr == 'true'
+    needs: [build-client, build-api, is-in-pr, deploy-job-fte]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add comment to PR
+        uses: marocchino/sticky-pull-request-comment@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          number: ${{ needs.is-in-pr.outputs.pr-number }}
+          header: staticwebapp
+          message: |
+            👋 This has been deployed to FTE: ${{ needs.deploy-job-fte.outputs.static-web-app-url }}

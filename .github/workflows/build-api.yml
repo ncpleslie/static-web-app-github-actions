@@ -1,0 +1,30 @@
+name: Build API
+
+on:
+  workflow_call:
+
+jobs:
+  run:
+    name: Build API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Use Node.js 16.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          cache: "yarn"
+      - name: Install modules
+        working-directory: ./api
+        run: yarn install
+      - name: Build api
+        working-directory: ./api
+        run: |
+          yarn run build
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: api
+          path: api/dist

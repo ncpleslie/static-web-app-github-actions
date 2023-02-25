@@ -1,0 +1,99 @@
+name: _Deploy client to Azure Static Web Apps
+
+on:
+  workflow_call:
+    inputs:
+      api-artifact-name:
+        required: false
+        type: string
+        default: "api"
+        description: "The name of the API artifact"
+      client-artifact-name:
+        required: false
+        type: string
+        default: "client-artifact"
+        description: "The name of the client artifact"
+      deployment-environment:
+        required: false
+        type: string
+        default: ""
+        description: >
+          'The name of the environment the application will be deployed to in Azure Static Web Apps
+          E.g. "uat" will deploy this to <website-name>-uat.<region>.azurestaticapps.net'
+      production-branch:
+        required: false
+        type: string
+        description: >
+          "The production branch name. Useful if you are running two instances of Azure static Web Apps.
+          E.g. One instance is an internal-only version and one instance is for a clients environment.
+          Internally, 'production' could be every merge into 'main'. 
+          Then the 'Production' environment of Azure Static Web Apps would have the 'main' branch deployed to it."
+        default: "release"
+      runs-on:
+        required: false
+        type: string
+        default: "ubuntu-latest"
+        description: "The hosted runner"
+      development-environment-deploy:
+        required: false
+        type: boolean
+        default: false
+        description: 'Is this a development environment deploy? Will use the "dev" staticwebapp.config.json for deployment.'
+
+    secrets:
+      azure-static-web-apps-api-token:
+        required: true
+        description: "The azure static web apps token. This should be stored in a GitHub secret"
+
+    outputs:
+      static-web-app-url:
+        description: "The URL of the deployed web app"
+        value: ${{ jobs.deploy_static_web_app.outputs.url }}
+
+jobs:
+  deploy_static_web_app:
+    outputs:
+      url: ${{ steps.deploy.outputs.static_web_app_url }}
+    runs-on: ${{ inputs.runs-on }}
+    name: Deploy
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Download a client artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ inputs.client-artifact-name }}
+          path: dist
+      - name: Move development staticwebapp.config.json
+        if: ${{ inputs.development-environment-deploy }}
+        run: |
+          rm dist/staticwebapp.config.json
+          mv staticwebapp.dev.config.json dist/staticwebapp.config.json
+      - name: Move production staticwebapp.config.json
+        if: ${{ !inputs.development-environment-deploy }}
+        run: |
+          rm dist/staticwebapp.config.json
+          mv staticwebapp.prod.config.json dist/staticwebapp.config.json
+      - name: Download api artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ inputs.api-artifact-name }}
+          path: api/dist
+      - name: Deploy
+        id: deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.azure-static-web-apps-api-token }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
+          action: "upload"
+          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
+          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
+          app_location: "dist" # App source code path
+          api_location: "api" # Api source code path - optional
+          skip_app_build: true
+          skip_api_build: true
+          deployment_environment: ${{ inputs.deployment-environment }}
+          production_branch: ${{ inputs.production-branch }}
+          ###### End of Repository/Build Configurations ######

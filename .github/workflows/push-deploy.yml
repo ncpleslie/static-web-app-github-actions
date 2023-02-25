@@ -1,0 +1,68 @@
+name: "Automatic: Deploy Static Web Apps"
+
+on:
+  push:
+    branches:
+      - "feature/*"
+      - "main"
+      - "release"
+    paths-ignore:
+      - "**.md"
+      - ".github/workflows/**"
+      - "azure/**"
+
+# This will prevent two jobs spinning up at once.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  es-lint:
+    name: ES Lint
+    uses: ./.github/workflows/lint.yml
+
+  unit-tests:
+    name: Unit Tests
+    uses: ./.github/workflows/unit-test.yml
+
+  # Build the client but not for every push to the repo
+  # This will prevent over-usage of the build runners.
+  build-client:
+    name: Build Client
+    needs: [unit-tests, es-lint]
+    uses: ./.github/workflows/build-client.yml
+
+  # call the API build module
+  build-api:
+    name: Build API
+    uses: ./.github/workflows/build-api.yml
+
+  deploy-job-dev:
+    if: github.ref_name == 'main' && github.event_name == 'push'
+    uses: ./.github/workflows/deploy-static-web-app.yml
+    needs: [build-client, build-api]
+    with:
+      production-branch: "main"
+      development-environment-deploy: true
+    secrets:
+      azure-static-web-apps-api-token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_DEV }}
+
+  # Uncomment this if you require multi instances of SWA.
+  # E.g. You want to keep the development and the client's instances separate.
+  # That can be useful if you want to destroy the development environment a lot.
+
+  # deploy_job_uat:
+  #   if: github.ref_name == 'main' && github.event_name == 'push'
+  #   uses: ./.github/workflows/deploy-static-web-app.yml
+  #   needs: [build-client, build-api]
+  #   with:
+  #     deployment-environment: "uat"
+  #   secrets:
+  #     azure-static-web-apps-api-token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PRD }}
+
+  # deploy_job_prod:
+  #   if: github.ref_name == 'release' && github.event_name == 'push'
+  #   uses: ./.github/workflows/deploy-static-web-app.yml
+  #   needs: [build-client, build-api]
+  #   secrets:
+  #     azure-static-web-apps-api-token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PRD }}

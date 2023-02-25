@@ -1,0 +1,28 @@
+{
+  "platform": {
+    "apiRuntime": "node:16"
+  },
+  "routes": [
+    {
+      "route": "/assets/*"
+    },
+    {
+      "route": "/favicon.ico"
+    },
+    {
+      "route": "/api/*"
+    },
+    {
+      "route": "/*",
+      "rewrite": "/index.html"
+    }
+  ],
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "favicon.ico"]
+  },
+  "globalHeaders": {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
+  }
+}
