@@ -23,6 +23,12 @@ jobs:
         working-directory: ./api
         run: |
           yarn run build
+      # We need to include the entire directory, node_modules and all,
+      # since Azure won't grab these modules
+      - name: Compressing API Artifact
+        working-directory: ./api
+        run: |
+          tar -cvf ./api.tar .
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
